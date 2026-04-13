@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     break_even_profit_usd: float = 5.0
     spread_threshold: float = 0.8
     rr_ratio: float = 2.0
+    auto_trade_enabled: bool = False
+    auto_trade_confidence: float = 0.75
+    news_lock_minutes: int = 45
     poll_interval_seconds: int = 2
     db_path: str = "trade_logs.db"
     telegram_bot_token: str = ""

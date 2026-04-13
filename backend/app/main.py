@@ -10,7 +10,16 @@ from .data_provider import DataProvider
 from .indicators import compute_indicators, latest_indicator_snapshot
 from .logger import TradeLogger
 from .ml_model import SignalModel
-from .models import CloseTradeRequest, PriceResponse, SignalResponse, TradeHistoryResponse, TradeRequest
+from .models import (
+    AutoTradeRequest,
+    AutoTradeStatus,
+    CloseTradeRequest,
+    PriceResponse,
+    SignalResponse,
+    TradeHistoryResponse,
+    TradeRequest,
+)
+from .news_filter import NewsFilter
 from .patterns import detect_candlestick_confirmation
 from .sessions import is_active_trading_session
 from .strategy import combine_with_ml, derive_rule_signal
@@ -26,15 +35,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-provider = DataProvider()
+provider = DataProvider(symbol=settings.symbol)
 model = SignalModel()
 trader = PaperTrader()
 logger = TradeLogger(settings.db_path)
 alerter = TelegramAlerter(settings.telegram_bot_token, settings.telegram_chat_id)
+news_filter = NewsFilter()
+auto_trade_enabled = settings.auto_trade_enabled
 
 
 def _market_snapshot() -> tuple[dict, dict, str, str, float]:
-    raw = provider.fetch_ohlc()
+    raw = _safe_ohlc()
     enriched = compute_indicators(raw)
     model.train_if_needed(enriched)
     latest = latest_indicator_snapshot(enriched)
@@ -45,9 +56,39 @@ def _market_snapshot() -> tuple[dict, dict, str, str, float]:
     return latest, {"buy": buy_probability, "sell": 1 - buy_probability}, signal, reason, confidence
 
 
+
+
+def _safe_price_tick() -> dict:
+    try:
+        return provider.fetch_live_price()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+def _safe_ohlc(interval: str = "5m", rng: str = "5d"):
+    try:
+        return provider.fetch_ohlc(interval=interval, rng=rng)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+def _blocked_by_filters(spread: float) -> str | None:
+    if not is_active_trading_session():
+        return "Outside London/New York trading sessions"
+    if spread > settings.spread_threshold:
+        return f"Spread too high ({spread:.2f})"
+    if news_filter.is_news_time(lock_minutes=settings.news_lock_minutes):
+        return "High-impact news window: trading blocked"
+    return None
+
+
+@app.on_event("startup")
+async def startup() -> None:
+    asyncio.create_task(auto_trade_loop())
+
+
 @app.get("/price", response_model=PriceResponse)
 def price() -> PriceResponse:
-    tick = provider.fetch_live_price()
+    tick = _safe_price_tick()
     if trader.active_trade:
         updated = trader.update_trade(tick["price"])
         if updated:
@@ -58,14 +99,11 @@ def price() -> PriceResponse:
 @app.get("/signal", response_model=SignalResponse)
 def signal() -> SignalResponse:
     latest, proba, ai_signal, reason, confidence = _market_snapshot()
-    tick = provider.fetch_live_price()
-
-    if not is_active_trading_session():
+    tick = _safe_price_tick()
+    blocked_reason = _blocked_by_filters(tick["spread"])
+    if blocked_reason:
         ai_signal = "HOLD"
-        reason = "Outside London/New York trading sessions"
-    elif tick["spread"] > settings.spread_threshold:
-        ai_signal = "HOLD"
-        reason = f"Spread too high ({tick['spread']:.2f})"
+        reason = blocked_reason
 
     return SignalResponse(
         signal=ai_signal,
@@ -87,7 +125,7 @@ def trade(req: TradeRequest):
         raise HTTPException(status_code=400, detail="No strong signal. Force side via payload to override.")
 
     side = req.side or signal_resp.signal
-    tick = provider.fetch_live_price()
+    tick = _safe_price_tick()
     entry = tick["ask"] if side == "BUY" else tick["bid"]
     opened = trader.open_trade(side=side, price=entry, lot_size=req.lot_size, quantity=req.quantity, target_profit=req.target_profit_usd)
     logger.upsert_trade(opened)
@@ -99,7 +137,7 @@ def trade(req: TradeRequest):
 def close(req: CloseTradeRequest):
     if not trader.active_trade or trader.active_trade.trade_id != req.trade_id:
         raise HTTPException(status_code=404, detail="Active trade not found")
-    tick = provider.fetch_live_price()
+    tick = _safe_price_tick()
     closed = trader.close_trade(tick["price"])
     if not closed:
         raise HTTPException(status_code=500, detail="Close failed")
@@ -115,17 +153,31 @@ def history() -> TradeHistoryResponse:
 
 @app.get("/backtest")
 def backtest():
-    raw = provider.fetch_ohlc(interval="15m", rng="1mo")
+    raw = _safe_ohlc(interval="15m", rng="1mo")
     return run_backtest(raw, quantity=settings.quantity, target_profit=settings.target_profit_usd)
 
 
 @app.post("/train")
 def train_model():
-    raw = provider.fetch_ohlc(interval="5m", rng="1mo")
+    raw = provider.fetch_10y_training_data()
     enriched = compute_indicators(raw)
     metrics = model.train(enriched)
     metrics["trained_at"] = datetime.now(timezone.utc).isoformat()
+    metrics["symbol"] = settings.symbol
+    metrics["source"] = "mt5" if provider.mt5_ready else "yahoo_fallback"
     return metrics
+
+
+@app.get("/autotrade", response_model=AutoTradeStatus)
+def get_auto_trade() -> AutoTradeStatus:
+    return AutoTradeStatus(enabled=auto_trade_enabled, min_confidence=settings.auto_trade_confidence)
+
+
+@app.post("/autotrade", response_model=AutoTradeStatus)
+def set_auto_trade(req: AutoTradeRequest) -> AutoTradeStatus:
+    global auto_trade_enabled
+    auto_trade_enabled = req.enabled
+    return AutoTradeStatus(enabled=auto_trade_enabled, min_confidence=settings.auto_trade_confidence)
 
 
 @app.websocket("/ws/price")
@@ -147,8 +199,22 @@ async def ws_price(websocket: WebSocket):
                     "confidence": s.confidence,
                     "win_probability": s.win_probability,
                     "lose_probability": s.lose_probability,
+                    "auto_trade": auto_trade_enabled,
                 }
             )
             await asyncio.sleep(settings.poll_interval_seconds)
     except Exception:
         await websocket.close()
+
+
+async def auto_trade_loop() -> None:
+    await asyncio.sleep(2)
+    while True:
+        try:
+            if auto_trade_enabled and trader.active_trade is None:
+                sig = signal()
+                if sig.signal in {"BUY", "SELL"} and sig.confidence >= settings.auto_trade_confidence:
+                    trade(TradeRequest(side=sig.signal))
+            await asyncio.sleep(settings.poll_interval_seconds)
+        except Exception:
+            await asyncio.sleep(settings.poll_interval_seconds)

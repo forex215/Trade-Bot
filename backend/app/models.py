@@ -55,3 +55,12 @@ class TradeHistoryResponse(BaseModel):
 
 class CloseTradeRequest(BaseModel):
     trade_id: str
+
+
+class AutoTradeRequest(BaseModel):
+    enabled: bool
+
+
+class AutoTradeStatus(BaseModel):
+    enabled: bool
+    min_confidence: float
