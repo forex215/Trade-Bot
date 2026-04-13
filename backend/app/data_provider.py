@@ -31,34 +31,13 @@ class DataProvider:
             return False
 
     def fetch_ohlc(self, interval: str = "5m", rng: str = "5d") -> pd.DataFrame:
-        if self.mt5_ready:
-            df = self._fetch_mt5_ohlc(interval, rng)
-            if not df.empty:
-                self.last_price = float(df["close"].iloc[-1])
-                return df
-
-        params = {"interval": interval, "range": rng}
-        try:
-            response = requests.get(YAHOO_CHART_URL, params=params, timeout=8)
-            response.raise_for_status()
-            data = response.json()["chart"]["result"][0]
-            quote = data["indicators"]["quote"][0]
-            frame = pd.DataFrame(
-                {
-                    "timestamp": pd.to_datetime(data["timestamp"], unit="s", utc=True),
-                    "open": quote["open"],
-                    "high": quote["high"],
-                    "low": quote["low"],
-                    "close": quote["close"],
-                    "volume": quote.get("volume"),
-                }
-            ).dropna(subset=["close"])
-            if not frame.empty:
-                self.last_price = float(frame["close"].iloc[-1])
-                return frame
-        except Exception:
-            pass
-        return self._synthetic_ohlc()
+        if not self.mt5_ready:
+            raise RuntimeError("MT5 is required for realtime data but not available")
+        df = self._fetch_mt5_ohlc(interval, rng)
+        if df.empty:
+            raise RuntimeError("Unable to fetch OHLC from MT5")
+        self.last_price = float(df["close"].iloc[-1])
+        return df
 
     def fetch_10y_training_data(self) -> pd.DataFrame:
         if self.mt5_ready:
@@ -70,8 +49,7 @@ class DataProvider:
                 frame["timestamp"] = pd.to_datetime(frame["time"], unit="s", utc=True)
                 return frame[["timestamp", "open", "high", "low", "close", "tick_volume"]].rename(columns={"tick_volume": "volume"})
 
-        # fallback to Yahoo 10y hourly-like proxy (60m)
-        url = "https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X"
+        url = YAHOO_CHART_URL
         params = {"interval": "60m", "range": "10y"}
         response = requests.get(url, params=params, timeout=12)
         response.raise_for_status()
@@ -89,26 +67,19 @@ class DataProvider:
         ).dropna(subset=["close"])
 
     def fetch_live_price(self) -> dict:
-        if self.mt5_ready:
-            tick = mt5.symbol_info_tick(self.symbol)
-            if tick:
-                spread = float(tick.ask - tick.bid)
-                mid = float((tick.ask + tick.bid) / 2)
-                return {
-                    "price": mid,
-                    "bid": float(tick.bid),
-                    "ask": float(tick.ask),
-                    "spread": spread,
-                    "timestamp": datetime.now(timezone.utc),
-                }
+        if not self.mt5_ready:
+            raise RuntimeError("MT5 is required for realtime price but not available")
+        tick = mt5.symbol_info_tick(self.symbol)
+        if not tick:
+            raise RuntimeError("Unable to fetch live tick from MT5")
 
-        ohlc = self.fetch_ohlc(interval="1m", rng="1d")
-        mid = float(ohlc["close"].iloc[-1]) if not ohlc.empty else self.last_price
-        spread = max(0.15, min(0.8, abs(np.random.normal(0.35, 0.1))))
+        spread = float(tick.ask - tick.bid)
+        mid = float((tick.ask + tick.bid) / 2)
+        self.last_price = mid
         return {
             "price": mid,
-            "bid": mid - spread / 2,
-            "ask": mid + spread / 2,
+            "bid": float(tick.bid),
+            "ask": float(tick.ask),
             "spread": spread,
             "timestamp": datetime.now(timezone.utc),
         }

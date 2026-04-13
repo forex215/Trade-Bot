@@ -4,7 +4,7 @@ Aggressive full-stack learning bot for Gold (XAUUSD) using FastAPI backend + Rea
 
 ## What Changed (Requested)
 
-- MT5 is now first priority for real-time price and OHLC data.
+- MT5 is mandatory for real-time price and OHLC data (no realtime fallback).
 - Model training now uses last 10 years of XAUUSD data (`/train`) via MT5 H1 candles (Yahoo fallback only if MT5 unavailable).
 - News-aware filter blocks trading during high-impact ForexFactory news windows.
 - Auto-trading executes only when confidence >= 75%.
@@ -39,6 +39,8 @@ npm run dev
 ```
 
 Open: http://localhost:5173
+
+> If MT5 is not connected/logged in with XAUUSD symbol enabled, realtime endpoints will return HTTP 503.
 
 ## API Endpoints
 

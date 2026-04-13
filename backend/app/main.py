@@ -45,7 +45,7 @@ auto_trade_enabled = settings.auto_trade_enabled
 
 
 def _market_snapshot() -> tuple[dict, dict, str, str, float]:
-    raw = provider.fetch_ohlc()
+    raw = _safe_ohlc()
     enriched = compute_indicators(raw)
     model.train_if_needed(enriched)
     latest = latest_indicator_snapshot(enriched)
@@ -55,6 +55,21 @@ def _market_snapshot() -> tuple[dict, dict, str, str, float]:
     signal, confidence = combine_with_ml(rule_signal, buy_probability)
     return latest, {"buy": buy_probability, "sell": 1 - buy_probability}, signal, reason, confidence
 
+
+
+
+def _safe_price_tick() -> dict:
+    try:
+        return provider.fetch_live_price()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+def _safe_ohlc(interval: str = "5m", rng: str = "5d"):
+    try:
+        return provider.fetch_ohlc(interval=interval, rng=rng)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 def _blocked_by_filters(spread: float) -> str | None:
     if not is_active_trading_session():
@@ -73,7 +88,7 @@ async def startup() -> None:
 
 @app.get("/price", response_model=PriceResponse)
 def price() -> PriceResponse:
-    tick = provider.fetch_live_price()
+    tick = _safe_price_tick()
     if trader.active_trade:
         updated = trader.update_trade(tick["price"])
         if updated:
@@ -84,7 +99,7 @@ def price() -> PriceResponse:
 @app.get("/signal", response_model=SignalResponse)
 def signal() -> SignalResponse:
     latest, proba, ai_signal, reason, confidence = _market_snapshot()
-    tick = provider.fetch_live_price()
+    tick = _safe_price_tick()
     blocked_reason = _blocked_by_filters(tick["spread"])
     if blocked_reason:
         ai_signal = "HOLD"
@@ -110,7 +125,7 @@ def trade(req: TradeRequest):
         raise HTTPException(status_code=400, detail="No strong signal. Force side via payload to override.")
 
     side = req.side or signal_resp.signal
-    tick = provider.fetch_live_price()
+    tick = _safe_price_tick()
     entry = tick["ask"] if side == "BUY" else tick["bid"]
     opened = trader.open_trade(side=side, price=entry, lot_size=req.lot_size, quantity=req.quantity, target_profit=req.target_profit_usd)
     logger.upsert_trade(opened)
@@ -122,7 +137,7 @@ def trade(req: TradeRequest):
 def close(req: CloseTradeRequest):
     if not trader.active_trade or trader.active_trade.trade_id != req.trade_id:
         raise HTTPException(status_code=404, detail="Active trade not found")
-    tick = provider.fetch_live_price()
+    tick = _safe_price_tick()
     closed = trader.close_trade(tick["price"])
     if not closed:
         raise HTTPException(status_code=500, detail="Close failed")
@@ -138,7 +153,7 @@ def history() -> TradeHistoryResponse:
 
 @app.get("/backtest")
 def backtest():
-    raw = provider.fetch_ohlc(interval="15m", rng="1mo")
+    raw = _safe_ohlc(interval="15m", rng="1mo")
     return run_backtest(raw, quantity=settings.quantity, target_profit=settings.target_profit_usd)
 
 
