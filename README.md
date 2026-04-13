@@ -2,6 +2,21 @@
 
 Aggressive full-stack learning bot for Gold (XAUUSD) with FastAPI backend + React/Tailwind frontend.
 
+## Important Reality Check (85% Win Rate)
+
+- An **85% live win rate is not guaranteed** in real markets.
+- What you can target instead: disciplined risk controls, high-quality data, strict session filtering, and continuous retraining/evaluation.
+- Use this project as a **free training + paper-trading framework** to measure if your strategy can approach your target on out-of-sample data.
+
+## What You Need (Free Stack)
+
+1. Python 3.11+
+2. Node.js 20+
+3. Free data source (Yahoo Finance endpoint used in project)
+4. SQLite (built-in)
+5. Optional Telegram bot for alerts
+6. Render/Railway (backend) + Vercel (frontend)
+
 ## Folder Structure
 
 ```
@@ -59,38 +74,38 @@ Trade-Bot/
 - `POST /close` → manually close active trade
 - `GET /history` → trade logs from SQLite
 - `GET /backtest` → simple strategy backtest summary
+- `POST /train` → retrain ML model and return current metrics
+- `WS /ws/price` → real-time streaming price + signal payload
 
 ## Frontend Setup (React + Tailwind)
 
 1. `cd frontend`
 2. `npm install`
 3. `echo "VITE_API_URL=http://localhost:8000" > .env`
-4. `npm run dev`
-5. Open http://localhost:5173
+4. Optional websocket override:
+   - `echo "VITE_WS_URL=ws://localhost:8000/ws/price" >> .env`
+5. `npm run dev`
+6. Open http://localhost:5173
 
 ## Strategy Logic (Aggressive, Low HOLD)
 
 - BUY primary trigger: `RSI < 35` + MACD bullish crossover
 - SELL primary trigger: `RSI > 65` + MACD bearish crossover
 - HOLD reduction: loosened bias thresholds (`RSI < 38` or bullish crossover, `RSI > 62` or bearish crossover)
-- ML gate: RandomForest probability on RSI/MACD/EMA/returns
+- ML gate: RandomForest / LogisticRegression probability on RSI/MACD/EMA/returns/ATR/volatility
 - Trade executes when confidence > 65% (or strong override)
 - Profit handling:
   - Target quick booking near +$10
   - Move stop to break-even after +$5
 
-## Risk Management
+## Training Plan to Push Accuracy Higher
 
-- Fixed configurable lot size + quantity
-- Approx 1:2 stop-loss : take-profit ratio
-- Blocks entries on high spread
-- Trades only London/New York UTC session overlap windows
-
-## Bonus Features Included
-
-- Telegram alerts for open/close events (optional token/chat id)
-- Backtesting endpoint
-- Candlestick confirmation (engulfing pattern)
+1. Gather at least 3-6 months of 1m/5m data.
+2. Train daily with walk-forward validation (never random split for time series).
+3. Keep only high-confidence predictions (e.g., > 0.70).
+4. Add features: ATR, volatility, session, spread bucket, candle patterns.
+5. Measure precision and win-rate separately for BUY and SELL.
+6. Retune threshold weekly using only recent out-of-sample data.
 
 ## Free Deployment
 

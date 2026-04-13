@@ -3,17 +3,19 @@ import PriceChart from './components/PriceChart'
 import SignalCard from './components/SignalCard'
 import TradeControls from './components/TradeControls'
 import TradeHistory from './components/TradeHistory'
-import { closeTrade, fetchHistory, fetchPrice, fetchSignal, openTrade } from './api'
+import api, { closeTrade, fetchHistory, fetchPrice, fetchSignal, openTrade } from './api'
 
 export default function App() {
   const [price, setPrice] = useState(null)
   const [signal, setSignal] = useState(null)
   const [history, setHistory] = useState([])
   const [priceSeries, setPriceSeries] = useState([])
+  const [trainStats, setTrainStats] = useState(null)
   const [error, setError] = useState('')
 
   const activeTrade = useMemo(() => history.find((t) => t.status === 'OPEN'), [history])
-  const progress = activeTrade ? Math.min(100, Math.max(0, (activeTrade.pnl_usd / 10) * 100)) : 0
+  const target = Number(activeTrade?.take_profit ? Math.abs(activeTrade.take_profit - activeTrade.entry_price) * activeTrade.quantity : 10)
+  const progress = activeTrade ? Math.min(100, Math.max(0, (activeTrade.pnl_usd / target) * 100)) : 0
 
   const refresh = async () => {
     try {
@@ -30,8 +32,31 @@ export default function App() {
 
   useEffect(() => {
     refresh()
-    const timer = setInterval(refresh, 2000)
-    return () => clearInterval(timer)
+    const wsUrl = (import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/price')
+    const ws = new WebSocket(wsUrl)
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      setPrice({
+        symbol: data.symbol,
+        price: data.price,
+        bid: data.bid,
+        ask: data.ask,
+        spread: data.spread,
+      })
+      setSignal({
+        signal: data.signal,
+        confidence: data.confidence,
+        win_probability: data.win_probability,
+        lose_probability: data.lose_probability,
+        reason: 'Live stream',
+      })
+      setPriceSeries((prev) => [...prev.slice(-59), data.price])
+    }
+    const timer = setInterval(refresh, 4000)
+    return () => {
+      clearInterval(timer)
+      ws.close()
+    }
   }, [])
 
   const onOpen = async (payload) => {
@@ -57,6 +82,16 @@ export default function App() {
     }
   }
 
+  const onTrain = async () => {
+    try {
+      const res = await api.post('/train')
+      setTrainStats(res.data)
+      setError('')
+    } catch {
+      setError('Training failed on backend')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-slate-100">
       <h1 className="mb-4 text-2xl font-bold">XAUUSD AI Scalping Dashboard</h1>
@@ -76,8 +111,14 @@ export default function App() {
               <div className="mt-2 h-2 w-full rounded bg-slate-700">
                 <div className="h-2 rounded bg-cyan-400" style={{ width: `${progress}%` }} />
               </div>
-              <p className="mt-1 text-xs text-slate-400">Target progress ($10): {progress.toFixed(1)}%</p>
+              <p className="mt-1 text-xs text-slate-400">Target progress (${target.toFixed(2)}): {progress.toFixed(1)}%</p>
             </>
+          )}
+          <button onClick={onTrain} className="mt-3 rounded bg-indigo-600 px-3 py-1 text-xs font-semibold">Train Model</button>
+          {trainStats && (
+            <p className="mt-2 text-xs text-slate-300">
+              Accuracy: {(trainStats.accuracy * 100).toFixed(1)}% | Precision: {(trainStats.precision * 100).toFixed(1)}%
+            </p>
           )}
         </div>
         <TradeControls onOpen={onOpen} onClose={onClose} activeTrade={activeTrade} />

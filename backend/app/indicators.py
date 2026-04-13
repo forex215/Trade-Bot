@@ -16,7 +16,15 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     out["macd"] = ema12 - ema26
     out["macd_signal"] = out["macd"].ewm(span=9, adjust=False).mean()
     out["macd_hist"] = out["macd"] - out["macd_signal"]
+
+    high_low = out["high"] - out["low"]
+    high_close = (out["high"] - out["close"].shift()).abs()
+    low_close = (out["low"] - out["close"].shift()).abs()
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    out["atr_14"] = tr.rolling(14).mean()
+
     out["returns"] = out["close"].pct_change().fillna(0)
+    out["volatility_20"] = out["returns"].rolling(20).std()
     return out.dropna().reset_index(drop=True)
 
 
@@ -32,6 +40,8 @@ def latest_indicator_snapshot(df: pd.DataFrame) -> dict:
         "macd": float(last["macd"]),
         "macd_signal": float(last["macd_signal"]),
         "returns": float(last["returns"]),
+        "atr_14": float(last["atr_14"]),
+        "volatility_20": float(last["volatility_20"]),
         "bullish_cross": bullish_cross,
         "bearish_cross": bearish_cross,
         "above_ema": float(last["close"]) >= float(last["ema_200"]),

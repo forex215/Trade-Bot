@@ -1,4 +1,7 @@
-from fastapi import FastAPI, HTTPException
+import asyncio
+from datetime import datetime, timezone
+
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from .backtesting import run_backtest
@@ -114,3 +117,38 @@ def history() -> TradeHistoryResponse:
 def backtest():
     raw = provider.fetch_ohlc(interval="15m", rng="1mo")
     return run_backtest(raw, quantity=settings.quantity, target_profit=settings.target_profit_usd)
+
+
+@app.post("/train")
+def train_model():
+    raw = provider.fetch_ohlc(interval="5m", rng="1mo")
+    enriched = compute_indicators(raw)
+    metrics = model.train(enriched)
+    metrics["trained_at"] = datetime.now(timezone.utc).isoformat()
+    return metrics
+
+
+@app.websocket("/ws/price")
+async def ws_price(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            p = price()
+            s = signal()
+            await websocket.send_json(
+                {
+                    "symbol": p.symbol,
+                    "price": p.price,
+                    "bid": p.bid,
+                    "ask": p.ask,
+                    "spread": p.spread,
+                    "timestamp": p.timestamp.isoformat(),
+                    "signal": s.signal,
+                    "confidence": s.confidence,
+                    "win_probability": s.win_probability,
+                    "lose_probability": s.lose_probability,
+                }
+            )
+            await asyncio.sleep(settings.poll_interval_seconds)
+    except Exception:
+        await websocket.close()
