@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AurumBot</title>
+  <style>
+    body{margin:0;background:#070b12;color:#dce8f5;font-family:Segoe UI,system-ui,sans-serif}
+    .wrap{display:grid;grid-template-columns:220px 1fr 340px;min-height:100vh}
+    .left,.right,.main{background:#0d1117;border-color:#1e2d42}
+    .left{border-right:1px solid #1e2d42;padding:14px}.main{padding:14px}.right{border-left:1px solid #1e2d42;padding:14px}
+    .card{background:#111826;border:1px solid #1e2d42;border-radius:10px;padding:12px;margin-bottom:12px}
+    .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+    .btn{padding:10px 12px;border-radius:8px;border:1px solid #29405c;background:#132134;color:#dce8f5;cursor:pointer}
+    .buy{border-color:#00d08466;color:#00d084}.sell{border-color:#ff475766;color:#ff4757}
+    .title{font-size:22px;color:#f0b429;font-weight:700}
+    .muted{color:#8ba4be;font-size:12px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .v{font-size:26px;font-weight:800}
+    .sig{font-size:22px;font-weight:800;padding:5px 10px;border-radius:8px;display:inline-block}
+    .sig.buy{background:#00d08422}.sig.sell{background:#ff475722}.sig.hold{background:#f0b42922;color:#f0b429}
+    .bar{height:8px;background:#203147;border-radius:6px;overflow:hidden}.fill{height:100%;background:#2d8cf0}
+    .log{max-height:260px;overflow:auto}.log .i{padding:6px 0;border-bottom:1px solid #1e2d42;font-size:12px}
+    select,input{background:#0b1320;border:1px solid #2a3a50;color:#dce8f5;border-radius:6px;padding:8px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="left">
+    <div class="title">AURUMBOT</div>
+    <p class="muted">XAUUSD AI Scalper</p>
+    <div class="card">
+      <div class="muted">Timeframe Planning</div>
+      <select id="tf" style="width:100%;margin-top:8px">
+        <option value="1m">1m</option><option value="5m" selected>5m</option><option value="15m">15m</option><option value="1h">1h</option>
+      </select>
+      <button class="btn" style="width:100%;margin-top:8px" onclick="loadPlan()">Plan Trade</button>
+      <pre id="planOut" class="muted" style="white-space:pre-wrap;margin-top:8px"></pre>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="card row"><div><div class="muted">Live Price</div><div id="price" class="v">--</div></div><div><div class="muted">Bid/Ask</div><div id="bidask">--</div></div><div><div class="muted">Spread</div><div id="spread">--</div></div></div>
+    <div class="grid3">
+      <div class="card"><div class="muted">Signal</div><div id="signal" class="sig hold">HOLD</div><div id="reason" class="muted"></div></div>
+      <div class="card"><div class="muted">Confidence</div><div id="conf" class="v">0%</div></div>
+      <div class="card"><div class="muted">Training</div><button class="btn" onclick="trainModel()">Train using Data/</button><div id="trainRes" class="muted"></div></div>
+    </div>
+    <div class="card">
+      <div class="row"><span>Win probability</span><span id="wp">0%</span></div><div class="bar"><div id="wpb" class="fill" style="width:0%"></div></div>
+      <div class="row" style="margin-top:8px"><span>Loss probability</span><span id="lp">0%</span></div><div class="bar"><div id="lpb" class="fill" style="width:0%;background:#ff4757"></div></div>
+    </div>
+  </main>
+
+  <aside class="right">
+    <div class="card">
+      <div class="row"><button class="btn buy" onclick="placeTrade('BUY')">BUY</button><button class="btn sell" onclick="placeTrade('SELL')">SELL</button></div>
+      <div style="margin-top:10px" class="row"><label><input id="auto" type="checkbox"/> Auto trade (75%+)</label></div>
+      <div class="muted" id="status"></div>
+    </div>
+    <div class="card"><div class="muted">Trade History</div><div id="log" class="log"></div></div>
+  </aside>
+</div>
+
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
+const wsUrl = (API ? API.replace('http','ws') : '') + '/ws/price';
+const $ = (id) => document.getElementById(id);
+async function req(path, opts={}){ const r = await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+
+async function syncHistory(){
+  try{
+    const h = await req('/history');
+    $('log').innerHTML = h.trades.slice(0,20).map(t=>`<div class='i'>${t.side} ${t.status} @ ${Number(t.current_price||0).toFixed(2)} | PnL ${(t.pnl_usd>=0?'+':'')+Number(t.pnl_usd||0).toFixed(2)}</div>`).join('');
+  }catch(e){ $('status').textContent = 'History: '+e.message; }
+}
+
+async function placeTrade(side){
+  try{ await req('/trade',{method:'POST',body:JSON.stringify({side})}); $('status').textContent='Trade placed: '+side; syncHistory(); }
+  catch(e){ $('status').textContent='Trade error: '+e.message; }
+}
+
+async function trainModel(){
+  try{ const r = await req('/train',{method:'POST'}); $('trainRes').textContent = `Rows ${r.rows||0}, Accuracy ${((r.accuracy||0)*100).toFixed(1)}%`; }
+  catch(e){ $('trainRes').textContent = 'Train error: '+e.message; }
+}
+
+async function loadPlan(){
+  const tf = $('tf').value;
+  try{ const p = await req(`/plan?timeframes=${tf},15m,1h`); $('planOut').textContent = JSON.stringify(p.aggregated,null,2); }
+  catch(e){ $('planOut').textContent = e.message; }
+}
+
+$('auto').addEventListener('change', async (e)=>{
+  try{ await req('/autotrade',{method:'POST',body:JSON.stringify({enabled:e.target.checked})}); $('status').textContent='Auto-trade updated'; }
+  catch(err){ $('status').textContent='Auto-trade failed'; }
+});
+
+function connect(){
+  const ws = new WebSocket(wsUrl);
+  ws.onmessage = (ev)=>{
+    const d=JSON.parse(ev.data);
+    $('price').textContent = Number(d.price||0).toFixed(2);
+    $('bidask').textContent = `${Number(d.bid||0).toFixed(2)} / ${Number(d.ask||0).toFixed(2)}`;
+    $('spread').textContent = Number(d.spread||0).toFixed(2);
+    $('signal').textContent = d.signal;
+    $('signal').className = 'sig '+String(d.signal||'hold').toLowerCase();
+    $('conf').textContent = ((d.confidence||0)*100).toFixed(1)+'%';
+    $('wp').textContent = ((d.win_probability||0)*100).toFixed(1)+'%';
+    $('lp').textContent = ((d.lose_probability||0)*100).toFixed(1)+'%';
+    $('wpb').style.width=((d.win_probability||0)*100)+'%';
+    $('lpb').style.width=((d.lose_probability||0)*100)+'%';
+    $('auto').checked = !!d.auto_trade;
+  };
+  ws.onclose = ()=>setTimeout(connect, 2000);
+  ws.onerror = ()=>{ $('status').textContent='Realtime socket disconnected'; };
+}
+connect();
+syncHistory();
+setInterval(syncHistory, 8000);
+</script>
+</body>
+</html>
