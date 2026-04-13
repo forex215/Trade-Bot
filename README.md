@@ -58,3 +58,8 @@ Open: http://localhost:5173
 
 - This remains paper-trading logic; you can wire real MT5 order execution later.
 - 85% win-rate cannot be guaranteed in live market conditions.
+
+
+## UI Template
+
+- The app now renders your provided premium dashboard UI via `frontend/public/dashboard.html` inside the React shell.
