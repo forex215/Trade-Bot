@@ -1,1 +1,123 @@
-<!doctype html><html><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width, initial-scale=1.0'/><title>AurumBot Dashboard</title><style>*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif}:root{--gold:#f0b429;--green:#00d084;--red:#ff4757;--bg0:#070b12;--bg1:#0d1117;--bg2:#131920;--bdr:#1e2d42;--text:#dce8f5;--text2:#6e8aaa;--text3:#3d526a;--blue:#2d8cf0}.shell{display:grid;grid-template-rows:52px 64px 1fr;background:#070b12;min-height:100vh}.nav{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:#0d1117;border-bottom:1px solid #1e2d42}.nav-left{display:flex;align-items:center;gap:16px}.logo-mark{width:30px;height:30px;border-radius:8px;background:#f0b42920;border:1px solid #f0b42940;display:flex;align-items:center;justify-content:center}.logo-inner{width:14px;height:14px;border-radius:50%;border:2px solid #f0b429;position:relative}.logo-inner::after{content:'';position:absolute;width:5px;height:5px;background:#f0b429;border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%)}.brand{font-size:15px;font-weight:700;color:#f0b429;letter-spacing:.5px}.brand span{color:#dce8f5;font-weight:400}.pair-chip{background:#f0b42920;border:1px solid #f0b42960;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:700;color:#f0b429}.nav-price-block{display:flex;align-items:center;gap:16px}.np-val{font-size:20px;font-weight:800;color:#f0b429}.np-chg{font-size:12px;font-weight:700;padding:3px 8px;border-radius:4px}.chg-up{background:#00d08420;color:#00d084;border:1px solid #00d08440}.live-pill{display:flex;align-items:center;gap:5px;background:#00d08415;border:1px solid #00d08430;border-radius:20px;padding:3px 10px;font-size:11px;color:#00d084}.pulse{width:6px;height:6px;border-radius:50%;background:#00d084;animation:blink 1s infinite}@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}.statsbar{display:grid;grid-template-columns:repeat(5,1fr);background:#0d1117;border-bottom:1px solid #1e2d42}.sb{padding:10px 18px;border-right:1px solid #1e2d42}.sb-label{font-size:10px;color:#6e8aaa;text-transform:uppercase}.sb-value{font-size:14px;font-weight:700}.body{display:grid;grid-template-columns:220px 1fr 320px;height:100%}.sidebar{background:#0d1117;border-right:1px solid #1e2d42;padding:12px 0}.nav-item{padding:9px 16px;color:#6e8aaa}.nav-item.active{background:#f0b42910;color:#f0b429;border-left:2px solid #f0b429}.content{display:flex;flex-direction:column}.charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:12px;border-bottom:1px solid #1e2d42}.chart-card{background:#0d1117;border:1px solid #1e2d42;border-radius:10px}.cc-header{padding:10px 14px;border-bottom:1px solid #1e2d42}.cc-body{padding:10px 14px}.trading-area{padding:12px}.ta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.trade-card{background:#0d1117;border:1px solid #1e2d42;border-radius:10px}.tc-header{padding:10px 14px;border-bottom:1px solid #1e2d42}.tc-body{padding:12px 14px}.right-panel{background:#0d1117;border-left:1px solid #1e2d42}.rp-section{padding:12px 14px;border-bottom:1px solid #1e2d42}.signal-box{background:#131920;border:1px solid #1e2d42;border-radius:8px}.signal-dir{font-size:18px;font-weight:800;padding:4px 14px;border-radius:6px;display:inline-block}.sig-buy{background:#00d08420;color:#00d084}.sig-sell{background:#ff475720;color:#ff4757}.bar-track{height:6px;background:#182030;border-radius:3px;overflow:hidden}.bar-fill{height:100%}.bf-green{background:#00d084}.bf-red{background:#ff4757}.trade-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 14px;border-bottom:1px solid #1e2d42}.btn-buy-big{background:#00d08415;border:1px solid #00d08440;border-radius:8px;padding:11px;color:#00d084}.btn-sell-big{background:#ff475715;border:1px solid #ff475740;border-radius:8px;padding:11px;color:#ff4757}.trades-log-section{padding:10px 14px}.log-row{display:grid;grid-template-columns:36px 1fr 70px 50px;gap:4px;padding:5px 0;border-bottom:1px solid #131920;font-size:11px;color:#dce8f5}</style></head><body><div class='shell'><div class='nav'><div class='nav-left'><div class='logo-mark'><div class='logo-inner'></div></div><div class='brand'>AURUM<span>BOT</span></div><div class='pair-chip'>XAU/USD</div></div><div class='nav-price-block'><div class='np-val' id='npVal'>--</div><div class='np-chg chg-up' id='npChg'>0.00%</div><div class='live-pill'><div class='pulse'></div>LIVE</div></div></div><div class='statsbar'><div class='sb'><div class='sb-label'>Balance</div><div class='sb-value' style='color:#2d8cf0'>$120,267.09</div></div><div class='sb'><div class='sb-label'>Assets</div><div class='sb-value' style='color:#f0b429'>$369,092.02</div></div><div class='sb'><div class='sb-label'>Net P&L Today</div><div class='sb-value' id='sfPnl' style='color:#00d084'>$0.00</div></div><div class='sb'><div class='sb-label'>Trades</div><div class='sb-value' id='sfTotal'>0</div></div><div class='sb'><div class='sb-label'>Win Rate</div><div class='sb-value' id='sbWinRate' style='color:#00bcd4'>0%</div></div></div><div class='body'><div class='sidebar'><div class='nav-item active'>Dashboard</div><div class='nav-item'>Trading history</div><div class='nav-item'>Affiliate program</div></div><div class='content'><div class='charts-row'><div class='chart-card'><div class='cc-header'>Trading volume</div><div class='cc-body'><canvas id='donut1' width='120' height='120'></canvas></div></div><div class='chart-card'><div class='cc-header'>Weekly trades</div><div class='cc-body'><canvas id='weekChart' height='100'></canvas></div></div><div class='chart-card'><div class='cc-header'>Volume / profit</div><div class='cc-body'><canvas id='donut2' width='120' height='120'></canvas></div></div></div><div class='trading-area'><div class='ta-grid'><div class='trade-card'><div class='tc-header'>Trading offers</div><div class='tc-body'><div>Buy price: <span id='ofBuy'>--</span></div><div>Sell price: <span id='ofSell'>--</span></div><button onclick='trainModel()'>Train 10Y Model</button></div></div><div class='trade-card'><div class='tc-header'>Active tradings</div><div class='tc-body'><div>Bid: <span id='atBuy'>--</span></div><div>Ask: <span id='atSell'>--</span></div><div>Spread: <span id='spreadVal'>--</span></div></div></div></div></div></div><div class='right-panel'><div class='rp-section'><div class='signal-box'><div style='padding:10px'><div class='signal-dir sig-buy' id='sigDir'>HOLD</div><div id='confNum'>0%</div></div><div style='padding:10px'>Win <span id='probWin'>0%</span><div class='bar-track'><div class='bar-fill bf-green' id='barWin' style='width:0%'></div></div>Loss <span id='probLoss'>0%</span><div class='bar-track'><div class='bar-fill bf-red' id='barLoss' style='width:0%'></div></div></div></div></div><div class='trade-btns'><button class='btn-buy-big' onclick="placeTrade('BUY')">BUY</button><button class='btn-sell-big' onclick="placeTrade('SELL')">SELL</button></div><div style='padding:10px'><label><input type='checkbox' id='autoTgl'> Auto trade (75%+)</label></div><div class='trades-log-section'><div id='tradeLog'></div></div></div></div></div></div><script src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'></script><script>const API=window.location.hostname==='localhost'?'http://localhost:8000':'';let wins=0,losses=0,total=0,pnl=0,log=[];new Chart(document.getElementById('donut1'),{type:'doughnut',data:{labels:['Total','Weekly','Today'],datasets:[{data:[2353,135,17],backgroundColor:['#2d8cf0','#f0b429','#00d084'],borderWidth:0}]},options:{plugins:{legend:{display:false}},cutout:'70%'}});new Chart(document.getElementById('donut2'),{type:'doughnut',data:{labels:['Profit','Remaining'],datasets:[{data:[24,76],backgroundColor:['#2d8cf0','#182030'],borderWidth:0}]},options:{plugins:{legend:{display:false}},cutout:'72%'}});new Chart(document.getElementById('weekChart'),{type:'bar',data:{labels:['S','M','T','W','T','F','S'],datasets:[{data:[65,120,95,148,88,132,70],backgroundColor:'#1e3050'}]},options:{plugins:{legend:{display:false}}}});async function req(path,opts={}){const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});if(!r.ok)throw new Error(await r.text());return r.json();}function renderLog(){document.getElementById('tradeLog').innerHTML=log.slice(-6).reverse().map(t=>`<div class='log-row'><div>${t.side}</div><div>${t.price}</div><div>${t.pnl}</div><div>${t.time}</div></div>`).join('');}async function loadHistory(){try{const h=await req('/history');total=h.trades.length;wins=h.trades.filter(t=>t.status==='CLOSED'&&t.pnl_usd>=0).length;losses=h.trades.filter(t=>t.status==='CLOSED'&&t.pnl_usd<0).length;pnl=h.trades.reduce((a,t)=>a+t.pnl_usd,0);document.getElementById('sfTotal').textContent=total;document.getElementById('sbWinRate').textContent=(total?wins/total*100:0).toFixed(1)+'%';document.getElementById('sfPnl').textContent=(pnl>=0?'+':'')+'$'+pnl.toFixed(2);log=h.trades.slice(0,8).map(t=>({side:t.side,price:Number(t.current_price||0).toFixed(2),pnl:(t.pnl_usd>=0?'+':'')+'$'+Number(t.pnl_usd||0).toFixed(2),time:new Date(t.opened_at).toLocaleTimeString()}));renderLog();}catch(e){}}async function placeTrade(side){try{await req('/trade',{method:'POST',body:JSON.stringify({side})});await loadHistory();}catch(e){alert('Trade failed: '+e.message);}}async function trainModel(){try{const d=await req('/train',{method:'POST'});alert('Training done: '+(d.rows||0)+' rows');}catch(e){alert('Training failed: '+e.message);}}document.getElementById('autoTgl').addEventListener('change',async e=>{try{await req('/autotrade',{method:'POST',body:JSON.stringify({enabled:e.target.checked})});}catch(err){alert('Auto trade update failed')}});function ws(){const wsUrl=(API?API.replace('http','ws'):'')+'/ws/price';const s=new WebSocket(wsUrl);s.onmessage=(ev)=>{const d=JSON.parse(ev.data);document.getElementById('npVal').textContent=Number(d.price||0).toFixed(2);document.getElementById('ofBuy').textContent=Number(d.bid||0).toFixed(2);document.getElementById('ofSell').textContent=Number(d.ask||0).toFixed(2);document.getElementById('atBuy').textContent=Number(d.bid||0).toFixed(2);document.getElementById('atSell').textContent=Number(d.ask||0).toFixed(2);document.getElementById('spreadVal').textContent=Number(d.spread||0).toFixed(2);document.getElementById('confNum').textContent=((d.confidence||0)*100).toFixed(1)+'%';document.getElementById('probWin').textContent=((d.win_probability||0)*100).toFixed(1)+'%';document.getElementById('probLoss').textContent=((d.lose_probability||0)*100).toFixed(1)+'%';document.getElementById('barWin').style.width=((d.win_probability||0)*100)+'%';document.getElementById('barLoss').style.width=((d.lose_probability||0)*100)+'%';const sig=d.signal||'HOLD';const el=document.getElementById('sigDir');el.textContent=sig;el.className='signal-dir '+(sig==='BUY'?'sig-buy':sig==='SELL'?'sig-sell':'');document.getElementById('autoTgl').checked=!!d.auto_trade;};s.onclose=()=>setTimeout(ws,1500);}ws();loadHistory();setInterval(loadHistory,8000);</script></body></html>
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AurumBot</title>
+  <style>
+    body{margin:0;background:#070b12;color:#dce8f5;font-family:Segoe UI,system-ui,sans-serif}
+    .wrap{display:grid;grid-template-columns:220px 1fr 340px;min-height:100vh}
+    .left,.right,.main{background:#0d1117;border-color:#1e2d42}
+    .left{border-right:1px solid #1e2d42;padding:14px}.main{padding:14px}.right{border-left:1px solid #1e2d42;padding:14px}
+    .card{background:#111826;border:1px solid #1e2d42;border-radius:10px;padding:12px;margin-bottom:12px}
+    .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+    .btn{padding:10px 12px;border-radius:8px;border:1px solid #29405c;background:#132134;color:#dce8f5;cursor:pointer}
+    .buy{border-color:#00d08466;color:#00d084}.sell{border-color:#ff475766;color:#ff4757}
+    .title{font-size:22px;color:#f0b429;font-weight:700}
+    .muted{color:#8ba4be;font-size:12px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .v{font-size:26px;font-weight:800}
+    .sig{font-size:22px;font-weight:800;padding:5px 10px;border-radius:8px;display:inline-block}
+    .sig.buy{background:#00d08422}.sig.sell{background:#ff475722}.sig.hold{background:#f0b42922;color:#f0b429}
+    .bar{height:8px;background:#203147;border-radius:6px;overflow:hidden}.fill{height:100%;background:#2d8cf0}
+    .log{max-height:260px;overflow:auto}.log .i{padding:6px 0;border-bottom:1px solid #1e2d42;font-size:12px}
+    select,input{background:#0b1320;border:1px solid #2a3a50;color:#dce8f5;border-radius:6px;padding:8px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="left">
+    <div class="title">AURUMBOT</div>
+    <p class="muted">XAUUSD AI Scalper</p>
+    <div class="card">
+      <div class="muted">Timeframe Planning</div>
+      <select id="tf" style="width:100%;margin-top:8px">
+        <option value="1m">1m</option><option value="5m" selected>5m</option><option value="15m">15m</option><option value="1h">1h</option>
+      </select>
+      <button class="btn" style="width:100%;margin-top:8px" onclick="loadPlan()">Plan Trade</button>
+      <pre id="planOut" class="muted" style="white-space:pre-wrap;margin-top:8px"></pre>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="card row"><div><div class="muted">Live Price</div><div id="price" class="v">--</div></div><div><div class="muted">Bid/Ask</div><div id="bidask">--</div></div><div><div class="muted">Spread</div><div id="spread">--</div></div></div>
+    <div class="grid3">
+      <div class="card"><div class="muted">Signal</div><div id="signal" class="sig hold">HOLD</div><div id="reason" class="muted"></div></div>
+      <div class="card"><div class="muted">Confidence</div><div id="conf" class="v">0%</div></div>
+      <div class="card"><div class="muted">Training</div><button class="btn" onclick="trainModel()">Train using Data/</button><div id="trainRes" class="muted"></div></div>
+    </div>
+    <div class="card">
+      <div class="row"><span>Win probability</span><span id="wp">0%</span></div><div class="bar"><div id="wpb" class="fill" style="width:0%"></div></div>
+      <div class="row" style="margin-top:8px"><span>Loss probability</span><span id="lp">0%</span></div><div class="bar"><div id="lpb" class="fill" style="width:0%;background:#ff4757"></div></div>
+    </div>
+  </main>
+
+  <aside class="right">
+    <div class="card">
+      <div class="row"><button class="btn buy" onclick="placeTrade('BUY')">BUY</button><button class="btn sell" onclick="placeTrade('SELL')">SELL</button></div>
+      <div style="margin-top:10px" class="row"><label><input id="auto" type="checkbox"/> Auto trade (75%+)</label></div>
+      <div class="muted" id="status"></div>
+    </div>
+    <div class="card"><div class="muted">Trade History</div><div id="log" class="log"></div></div>
+  </aside>
+</div>
+
+<script>
+const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
+const wsUrl = (API ? API.replace('http','ws') : '') + '/ws/price';
+const $ = (id) => document.getElementById(id);
+async function req(path, opts={}){ const r = await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+
+async function syncHistory(){
+  try{
+    const h = await req('/history');
+    $('log').innerHTML = h.trades.slice(0,20).map(t=>`<div class='i'>${t.side} ${t.status} @ ${Number(t.current_price||0).toFixed(2)} | PnL ${(t.pnl_usd>=0?'+':'')+Number(t.pnl_usd||0).toFixed(2)}</div>`).join('');
+  }catch(e){ $('status').textContent = 'History: '+e.message; }
+}
+
+async function placeTrade(side){
+  try{ await req('/trade',{method:'POST',body:JSON.stringify({side})}); $('status').textContent='Trade placed: '+side; syncHistory(); }
+  catch(e){ $('status').textContent='Trade error: '+e.message; }
+}
+
+async function trainModel(){
+  try{ const r = await req('/train',{method:'POST'}); $('trainRes').textContent = `Rows ${r.rows||0}, Accuracy ${((r.accuracy||0)*100).toFixed(1)}%`; }
+  catch(e){ $('trainRes').textContent = 'Train error: '+e.message; }
+}
+
+async function loadPlan(){
+  const tf = $('tf').value;
+  try{ const p = await req(`/plan?timeframes=${tf},15m,1h`); $('planOut').textContent = JSON.stringify(p.aggregated,null,2); }
+  catch(e){ $('planOut').textContent = e.message; }
+}
+
+$('auto').addEventListener('change', async (e)=>{
+  try{ await req('/autotrade',{method:'POST',body:JSON.stringify({enabled:e.target.checked})}); $('status').textContent='Auto-trade updated'; }
+  catch(err){ $('status').textContent='Auto-trade failed'; }
+});
+
+function connect(){
+  const ws = new WebSocket(wsUrl);
+  ws.onmessage = (ev)=>{
+    const d=JSON.parse(ev.data);
+    $('price').textContent = Number(d.price||0).toFixed(2);
+    $('bidask').textContent = `${Number(d.bid||0).toFixed(2)} / ${Number(d.ask||0).toFixed(2)}`;
+    $('spread').textContent = Number(d.spread||0).toFixed(2);
+    $('signal').textContent = d.signal;
+    $('signal').className = 'sig '+String(d.signal||'hold').toLowerCase();
+    $('conf').textContent = ((d.confidence||0)*100).toFixed(1)+'%';
+    $('wp').textContent = ((d.win_probability||0)*100).toFixed(1)+'%';
+    $('lp').textContent = ((d.lose_probability||0)*100).toFixed(1)+'%';
+    $('wpb').style.width=((d.win_probability||0)*100)+'%';
+    $('lpb').style.width=((d.lose_probability||0)*100)+'%';
+    $('auto').checked = !!d.auto_trade;
+  };
+  ws.onclose = ()=>setTimeout(connect, 2000);
+  ws.onerror = ()=>{ $('status').textContent='Realtime socket disconnected'; };
+}
+connect();
+syncHistory();
+setInterval(syncHistory, 8000);
+</script>
+</body>
+</html>

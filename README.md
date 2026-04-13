@@ -1,24 +1,26 @@
-# XAUUSD AI Scalping Bot (Paper Trading, MT5 + News Filter)
+# XAUUSD AI Scalping Bot (MT5 + Local Data + Timeframe Planning)
 
-Aggressive full-stack learning bot for Gold (XAUUSD) using FastAPI backend + React/Tailwind frontend.
+## Key fixes included
+- UI text visibility fixed (high-contrast colors).
+- Buttons are wired to backend APIs (`/trade`, `/train`, `/autotrade`, `/history`).
+- Realtime stream restored using `/ws/price`.
+- If MT5 is unavailable, app replays data from `Data/*.csv` for live simulation.
+- Training now prioritizes your local dataset in `Data/`.
+- Added timeframe-aware planning endpoint: `GET /plan?timeframes=15m,1h`.
 
-## What Changed (Requested)
+## Data folder
+Put your downloaded XAUUSD CSV files in:
 
-- MT5 is mandatory for real-time price and OHLC data (no realtime fallback).
-- Model training now uses last 10 years of XAUUSD data (`/train`) via MT5 H1 candles (Yahoo fallback only if MT5 unavailable).
-- News-aware filter blocks trading during high-impact ForexFactory news windows.
-- Auto-trading executes only when confidence >= 75%.
-- Auto-trading can be enabled/disabled from API and frontend toggle.
+```text
+Trade-Bot/Data/
+```
 
-## Setup Prerequisites
+Supported columns (case-insensitive variants accepted):
+- timestamp/time/datetime/date
+- open, high, low, close
+- volume (optional)
 
-1. Python 3.11+
-2. Node.js 20+
-3. MetaTrader 5 terminal installed and logged in to a broker account with XAUUSD enabled
-4. Internet access for ForexFactory XML calendar
-
-## Backend Setup
-
+## Run backend
 ```bash
 cd backend
 python -m venv .venv
@@ -28,38 +30,22 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-## Frontend Setup
-
+## Run frontend
 ```bash
 cd frontend
 npm install
-echo "VITE_API_URL=http://localhost:8000" > .env
-echo "VITE_WS_URL=ws://localhost:8000/ws/price" >> .env
 npm run dev
 ```
 
 Open: http://localhost:5173
 
-> If MT5 is not connected/logged in with XAUUSD symbol enabled, realtime endpoints will return HTTP 503.
-
-## API Endpoints
-
+## Main APIs
 - `GET /price`
-- `GET /signal`
+- `GET /signal?timeframe=15m`
+- `GET /plan?timeframes=5m,15m,1h`
 - `POST /trade`
 - `POST /close`
 - `GET /history`
-- `GET /backtest`
-- `POST /train` (10-year training run)
-- `GET /autotrade` and `POST /autotrade`
+- `POST /train`
+- `GET/POST /autotrade`
 - `WS /ws/price`
-
-## Notes
-
-- This remains paper-trading logic; you can wire real MT5 order execution later.
-- 85% win-rate cannot be guaranteed in live market conditions.
-
-
-## UI Template
-
-- The app now renders your provided premium dashboard UI via `frontend/public/dashboard.html` inside the React shell.

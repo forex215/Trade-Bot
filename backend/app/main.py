@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from .backtesting import run_backtest
@@ -26,14 +26,10 @@ from .strategy import combine_with_ml, derive_rule_signal
 from .telegram_alerts import TelegramAlerter
 from .trading import PaperTrader
 
+TF_MAP = {"1m": "1m", "5m": "5m", "15m": "15m", "1h": "1h"}
+
 app = FastAPI(title="XAUUSD AI Scalper")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 provider = DataProvider(symbol=settings.symbol)
 model = SignalModel()
@@ -42,20 +38,6 @@ logger = TradeLogger(settings.db_path)
 alerter = TelegramAlerter(settings.telegram_bot_token, settings.telegram_chat_id)
 news_filter = NewsFilter()
 auto_trade_enabled = settings.auto_trade_enabled
-
-
-def _market_snapshot() -> tuple[dict, dict, str, str, float]:
-    raw = _safe_ohlc()
-    enriched = compute_indicators(raw)
-    model.train_if_needed(enriched)
-    latest = latest_indicator_snapshot(enriched)
-    pattern = detect_candlestick_confirmation(enriched)
-    rule_signal, reason = derive_rule_signal(latest, pattern)
-    buy_probability = model.predict_buy_probability(enriched.iloc[-1])
-    signal, confidence = combine_with_ml(rule_signal, buy_probability)
-    return latest, {"buy": buy_probability, "sell": 1 - buy_probability}, signal, reason, confidence
-
-
 
 
 def _safe_price_tick() -> dict:
@@ -70,6 +52,20 @@ def _safe_ohlc(interval: str = "5m", rng: str = "5d"):
         return provider.fetch_ohlc(interval=interval, rng=rng)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+
+
+def _market_snapshot(timeframe: str = "5m") -> tuple[dict, dict, str, str, float]:
+    interval = TF_MAP.get(timeframe, "5m")
+    raw = _safe_ohlc(interval=interval)
+    enriched = compute_indicators(raw)
+    model.train_if_needed(enriched)
+    latest = latest_indicator_snapshot(enriched)
+    pattern = detect_candlestick_confirmation(enriched)
+    rule_signal, reason = derive_rule_signal(latest, pattern)
+    buy_probability = model.predict_buy_probability(enriched.iloc[-1])
+    signal, confidence = combine_with_ml(rule_signal, buy_probability)
+    return latest, {"buy": buy_probability, "sell": 1 - buy_probability}, signal, reason, confidence
+
 
 def _blocked_by_filters(spread: float) -> str | None:
     if not is_active_trading_session():
@@ -97,8 +93,8 @@ def price() -> PriceResponse:
 
 
 @app.get("/signal", response_model=SignalResponse)
-def signal() -> SignalResponse:
-    latest, proba, ai_signal, reason, confidence = _market_snapshot()
+def signal(timeframe: str = Query("5m")) -> SignalResponse:
+    latest, proba, ai_signal, reason, confidence = _market_snapshot(timeframe=timeframe)
     tick = _safe_price_tick()
     blocked_reason = _blocked_by_filters(tick["spread"])
     if blocked_reason:
@@ -110,9 +106,34 @@ def signal() -> SignalResponse:
         confidence=confidence,
         win_probability=proba["buy"] if ai_signal != "SELL" else proba["sell"],
         lose_probability=proba["sell"] if ai_signal != "SELL" else proba["buy"],
-        indicators=latest,
+        indicators={**latest, "timeframe": timeframe},
         reason=reason,
     )
+
+
+@app.get("/plan")
+def trade_plan(timeframes: str = Query("5m,15m,1h")):
+    tf_list = [t.strip() for t in timeframes.split(",") if t.strip()]
+    plans = {}
+    weighted_buy, weighted_sell = 0.0, 0.0
+    weights = {"1m": 1.0, "5m": 1.2, "15m": 1.5, "1h": 1.8}
+    for tf in tf_list:
+        s = signal(timeframe=tf)
+        plans[tf] = {
+            "signal": s.signal,
+            "confidence": s.confidence,
+            "win_probability": s.win_probability,
+            "lose_probability": s.lose_probability,
+            "reason": s.reason,
+        }
+        w = weights.get(tf, 1.0)
+        weighted_buy += s.win_probability * w
+        weighted_sell += s.lose_probability * w
+    total_w = sum(weights.get(tf, 1.0) for tf in tf_list) or 1
+    buy_prob = weighted_buy / total_w
+    sell_prob = weighted_sell / total_w
+    final_signal = "BUY" if buy_prob > sell_prob and buy_prob >= 0.55 else "SELL" if sell_prob > buy_prob and sell_prob >= 0.55 else "HOLD"
+    return {"timeframes": plans, "aggregated": {"signal": final_signal, "buy_probability": buy_prob, "sell_probability": sell_prob}}
 
 
 @app.post("/trade")
@@ -160,11 +181,13 @@ def backtest():
 @app.post("/train")
 def train_model():
     raw = provider.fetch_10y_training_data()
+    if raw.empty:
+        raise HTTPException(status_code=400, detail="No training data found. Put CSV files in Data/ or connect MT5.")
     enriched = compute_indicators(raw)
     metrics = model.train(enriched)
     metrics["trained_at"] = datetime.now(timezone.utc).isoformat()
     metrics["symbol"] = settings.symbol
-    metrics["source"] = "mt5" if provider.mt5_ready else "yahoo_fallback"
+    metrics["source"] = "local_data" if not provider._cached_local.empty else "mt5_or_yahoo"
     return metrics
 
 
@@ -212,7 +235,7 @@ async def auto_trade_loop() -> None:
     while True:
         try:
             if auto_trade_enabled and trader.active_trade is None:
-                sig = signal()
+                sig = signal(timeframe="15m")
                 if sig.signal in {"BUY", "SELL"} and sig.confidence >= settings.auto_trade_confidence:
                     trade(TradeRequest(side=sig.signal))
             await asyncio.sleep(settings.poll_interval_seconds)
